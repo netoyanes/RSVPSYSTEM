@@ -1,7 +1,7 @@
 -- ==============================================================
 -- RSVP System — full database setup (one-paste).
 -- Paste this whole file into the Supabase SQL Editor and run it.
--- It is the concatenation of supabase/migrations/0001..0004.
+-- It is the concatenation of supabase/migrations/0001..0005.
 -- ==============================================================
 
 
@@ -613,4 +613,22 @@ grant execute on function get_availability(text, date, int) to anon, authenticat
 grant execute on function create_hold(
   text, uuid, timestamptz, int, text, text, text, text
 ) to anon, authenticated;
+
+
+-- ----- supabase/migrations/0005_realtime.sql -----
+-- 0005_realtime.sql — enable Supabase Realtime on reservations so the staff
+-- floor panel updates live. RLS still applies: a staff device only receives
+-- changes for rows in venues it belongs to.
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'reservations'
+  ) then
+    alter publication supabase_realtime add table reservations;
+  end if;
+end $$;
 

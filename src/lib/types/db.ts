@@ -15,7 +15,7 @@ export type ReservationStatus =
 
 export type StaffRole = "owner" | "manager" | "host";
 
-export interface Venue {
+export type Venue = {
   id: string;
   slug: string;
   name: string;
@@ -25,7 +25,7 @@ export interface Venue {
   created_at: string;
 }
 
-export interface Room {
+export type Room = {
   id: string;
   venue_id: string;
   name: string;
@@ -35,7 +35,7 @@ export interface Room {
   active: boolean;
 }
 
-export interface SlotRule {
+export type SlotRule = {
   id: string;
   venue_id: string;
   name: string;
@@ -47,7 +47,27 @@ export interface SlotRule {
   active: boolean;
 }
 
-export interface Reservation {
+export type Customer = {
+  id: string;
+  venue_id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  birthday: string | null;
+  marketing_opt_in: boolean;
+  total_visits: number;
+  last_visit: string | null;
+  tags: string[];
+  created_at: string;
+}
+
+export type VenueMembership = {
+  user_id: string;
+  venue_id: string;
+  role: StaffRole;
+}
+
+export type Reservation = {
   id: string;
   venue_id: string;
   room_id: string;
@@ -74,13 +94,31 @@ export interface Reservation {
 export interface Database {
   public: {
     Tables: {
-      venues: { Row: Venue; Insert: Partial<Venue>; Update: Partial<Venue> };
-      rooms: { Row: Room; Insert: Partial<Room>; Update: Partial<Room> };
-      slot_rules: { Row: SlotRule; Insert: Partial<SlotRule>; Update: Partial<SlotRule> };
+      venues: { Row: Venue; Insert: Partial<Venue>; Update: Partial<Venue>; Relationships: [] };
+      rooms: { Row: Room; Insert: Partial<Room>; Update: Partial<Room>; Relationships: [] };
+      slot_rules: {
+        Row: SlotRule;
+        Insert: Partial<SlotRule>;
+        Update: Partial<SlotRule>;
+        Relationships: [];
+      };
+      customers: {
+        Row: Customer;
+        Insert: Partial<Customer>;
+        Update: Partial<Customer>;
+        Relationships: [];
+      };
+      venue_memberships: {
+        Row: VenueMembership;
+        Insert: Partial<VenueMembership>;
+        Update: Partial<VenueMembership>;
+        Relationships: [];
+      };
       reservations: {
         Row: Reservation;
         Insert: Partial<Reservation>;
         Update: Partial<Reservation>;
+        Relationships: [];
       };
     };
     Views: Record<string, never>;

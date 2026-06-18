@@ -16,11 +16,7 @@ export default async function AdminHome() {
   // Untyped client for table reads (see note in src/lib/admin/data.ts).
   const sb = supabase as unknown as SupabaseClient;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: memberships, error: membershipError } = await sb
+  const { data: memberships } = await sb
     .from("venue_memberships")
     .select("venue_id, role")
     .limit(1);
@@ -32,21 +28,9 @@ export default async function AdminHome() {
       <main className="container-app py-16">
         <h1 className="font-display text-2xl text-text">Sin acceso</h1>
         <p className="mt-2 text-sm text-muted">
-          Tu usuario no está asignado a ningún venue.
+          Tu usuario no está asignado a ningún venue. Pide a un administrador que
+          te agregue en <code>venue_memberships</code>.
         </p>
-        {/* Temporary diagnostics to pinpoint auth/RLS issues. */}
-        <pre className="mt-6 overflow-x-auto rounded-token border border-border bg-surface p-4 text-xs text-muted">
-          {JSON.stringify(
-            {
-              signedInUserId: user?.id ?? null,
-              signedInEmail: user?.email ?? null,
-              membershipsReturned: memberships?.length ?? 0,
-              queryError: membershipError?.message ?? null,
-            },
-            null,
-            2,
-          )}
-        </pre>
       </main>
     );
   }

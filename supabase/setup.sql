@@ -1,7 +1,7 @@
 -- ==============================================================
 -- RSVP System — full database setup (one-paste).
 -- Paste this whole file into the Supabase SQL Editor and run it.
--- It is the concatenation of supabase/migrations/0001..0005.
+-- Concatenation of supabase/migrations/0001..0006.
 -- ==============================================================
 
 
@@ -315,7 +315,13 @@ begin
   end loop;
 end $$;
 
--- Membership visibility: a user sees memberships of venues they belong to.
+-- Membership visibility: a user can always read their OWN membership rows
+-- (simple and non-recursive — this is what the staff panel needs to load).
+create policy "read own memberships"
+  on venue_memberships for select
+  using (user_id = auth.uid());
+
+-- Plus broader visibility: see co-workers in venues you belong to.
 create policy "staff read memberships"
   on venue_memberships for select
   using (venue_id in (select auth_member_venue_ids()));
@@ -631,4 +637,16 @@ begin
     alter publication supabase_realtime add table reservations;
   end if;
 end $$;
+
+
+-- ----- supabase/migrations/0006_membership_self_read.sql -----
+-- 0006_membership_self_read.sql
+-- The original venue-scoped membership read policy resolved to no rows via its
+-- helper function, blocking /admin ("Sin acceso"). Add a simple, non-recursive
+-- policy so a signed-in staff member can always read their OWN membership rows.
+
+drop policy if exists "read own memberships" on venue_memberships;
+create policy "read own memberships"
+  on venue_memberships for select
+  using (user_id = auth.uid());
 

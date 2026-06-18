@@ -79,29 +79,13 @@ begin
   end loop;
 end $$;
 
--- Membership visibility: a user can always read their OWN membership rows
--- (simple and non-recursive — this is what the staff panel needs to load).
+-- Membership visibility: a user can read their OWN membership rows. This MUST be
+-- the only policy that reads venue_memberships *from a policy on the same table*,
+-- otherwise RLS recurses infinitely (a policy that queries the table it guards).
+-- Other tables read memberships via auth_member_venue_ids(), whose inner query is
+-- then governed by this non-recursive policy — no recursion.
+-- Co-worker visibility and owner-managed memberships are handled out-of-band
+-- (SQL/admin) for now and will return via a SECURITY DEFINER RPC in a later phase.
 create policy "read own memberships"
   on venue_memberships for select
   using (user_id = auth.uid());
-
--- Plus broader visibility: see co-workers in venues you belong to.
-create policy "staff read memberships"
-  on venue_memberships for select
-  using (venue_id in (select auth_member_venue_ids()));
-
--- Only owners/managers can change memberships.
-create policy "owners manage memberships"
-  on venue_memberships for all
-  using (
-    venue_id in (
-      select venue_id from venue_memberships
-      where user_id = auth.uid() and role in ('owner','manager')
-    )
-  )
-  with check (
-    venue_id in (
-      select venue_id from venue_memberships
-      where user_id = auth.uid() and role in ('owner','manager')
-    )
-  );

@@ -1,7 +1,7 @@
 -- ==============================================================
 -- RSVP System — full database setup (one-paste).
 -- Paste this whole file into the Supabase SQL Editor and run it.
--- Concatenation of supabase/migrations/0001..0006.
+-- Concatenation of supabase/migrations/0001..0007.
 -- ==============================================================
 
 
@@ -315,32 +315,16 @@ begin
   end loop;
 end $$;
 
--- Membership visibility: a user can always read their OWN membership rows
--- (simple and non-recursive — this is what the staff panel needs to load).
+-- Membership visibility: a user can read their OWN membership rows. This MUST be
+-- the only policy that reads venue_memberships *from a policy on the same table*,
+-- otherwise RLS recurses infinitely (a policy that queries the table it guards).
+-- Other tables read memberships via auth_member_venue_ids(), whose inner query is
+-- then governed by this non-recursive policy — no recursion.
+-- Co-worker visibility and owner-managed memberships are handled out-of-band
+-- (SQL/admin) for now and will return via a SECURITY DEFINER RPC in a later phase.
 create policy "read own memberships"
   on venue_memberships for select
   using (user_id = auth.uid());
-
--- Plus broader visibility: see co-workers in venues you belong to.
-create policy "staff read memberships"
-  on venue_memberships for select
-  using (venue_id in (select auth_member_venue_ids()));
-
--- Only owners/managers can change memberships.
-create policy "owners manage memberships"
-  on venue_memberships for all
-  using (
-    venue_id in (
-      select venue_id from venue_memberships
-      where user_id = auth.uid() and role in ('owner','manager')
-    )
-  )
-  with check (
-    venue_id in (
-      select venue_id from venue_memberships
-      where user_id = auth.uid() and role in ('owner','manager')
-    )
-  );
 
 
 -- ----- supabase/migrations/0003_seed_bruma.sql -----
@@ -644,6 +628,24 @@ end $$;
 -- The original venue-scoped membership read policy resolved to no rows via its
 -- helper function, blocking /admin ("Sin acceso"). Add a simple, non-recursive
 -- policy so a signed-in staff member can always read their OWN membership rows.
+
+drop policy if exists "read own memberships" on venue_memberships;
+create policy "read own memberships"
+  on venue_memberships for select
+  using (user_id = auth.uid());
+
+
+-- ----- supabase/migrations/0007_fix_membership_recursion.sql -----
+-- 0007_fix_membership_recursion.sql
+-- The "staff read memberships" and "owners manage memberships" policies query
+-- venue_memberships from within a policy ON venue_memberships. SECURITY DEFINER
+-- did not bypass RLS in practice, so evaluation recursed infinitely
+-- ("infinite recursion detected in policy for relation venue_memberships"),
+-- aborting every read and blocking /admin. Drop them; keep only the simple,
+-- non-recursive self-read policy.
+
+drop policy if exists "staff read memberships" on venue_memberships;
+drop policy if exists "owners manage memberships" on venue_memberships;
 
 drop policy if exists "read own memberships" on venue_memberships;
 create policy "read own memberships"

@@ -79,7 +79,13 @@ begin
   end loop;
 end $$;
 
--- Membership visibility: a user sees memberships of venues they belong to.
+-- Membership visibility: a user can always read their OWN membership rows
+-- (simple and non-recursive — this is what the staff panel needs to load).
+create policy "read own memberships"
+  on venue_memberships for select
+  using (user_id = auth.uid());
+
+-- Plus broader visibility: see co-workers in venues you belong to.
 create policy "staff read memberships"
   on venue_memberships for select
   using (venue_id in (select auth_member_venue_ids()));

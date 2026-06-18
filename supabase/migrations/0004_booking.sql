@@ -111,6 +111,10 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+-- Output params (status, deposit_cents, hold_expires_at, reservation_id) share
+-- names with reservations columns used in the INSERT below; tell plpgsql to read
+-- ambiguous identifiers as columns so the DML isn't rejected.
+#variable_conflict use_column
 declare
   v venues%rowtype;
   s venue_settings%rowtype;

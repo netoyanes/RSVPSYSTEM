@@ -15,8 +15,11 @@ These were confirmed with the product owner and drive everything below:
 | Decision | Choice | Notes |
 |---|---|---|
 | Backend / hosting | **Supabase (Postgres + Auth + Realtime + RLS + Storage) + Vercel** | Multi-tenant isolation enforced at the database layer. |
-| Payment gateway | **Stripe** | Manual-capture-capable, excellent DX, strong fraud tooling (Radar), supports MX cards / OXXO / SPEI. |
-| Deposit handling | **Charge now, credit on the bill** | $200 MXN/person captured at booking; staff mark it "applied to bill" that night. Works across all payment methods (not just cards). |
+| Payment gateway | **Stripe — card only** | For the premium deposit we use **card payments only** (instant capture). OXXO/SPEI are *not* used for the prime slot: they settle asynchronously and can't guarantee an instant table lock. |
+| Deposit handling | **Charge now → redeemable credit on the dashboard** | $200 MXN/person captured at booking and recorded as a **credit on the customer's account**, visible on the dashboard. Staff redeem it against the bill that night; **on a no-show the credit is retained, not lost** — it stays on the account to redeem on a future visit. |
+| Slot hold (concurrency) | **10-minute TTL** | The slot is locked for 10 minutes while the customer completes checkout, then auto-released. |
+| Reminders | **WhatsApp at 24h and 3h before** | Configurable per venue via `reminder_offsets`. |
+| Languages | **Spanish default + English toggle** | ES-first for Mazatlán locals, EN for tourists. Full i18n from Phase 1. |
 | First deliverable | **This design document** | Implementation follows after sign-off. |
 
 ---
@@ -106,9 +109,13 @@ venue_branding
 venue_settings
   venue_id (fk, pk)
   cancellation_window_hrs  -- e.g. 24
-  no_show_policy (jsonb)   -- how deposit is handled on no-show
-  reminder_offsets (jsonb) -- e.g. [{channel:"whatsapp", hours_before:24}, ...]
-  default_slot_minutes     -- e.g. 120
+  hold_ttl_minutes         -- 10 (slot lock during checkout)
+  no_show_policy (jsonb)    -- {action: "retain_as_credit"} → deposit kept as
+                            --   redeemable account credit, never forfeited
+  reminder_offsets (jsonb)  -- [{channel:"whatsapp", hours_before:24},
+                            --   {channel:"whatsapp", hours_before:3}]
+  supported_languages       -- ["es","en"], default "es"
+  default_slot_minutes      -- e.g. 120
 
 rooms
   id (uuid, pk)
@@ -189,6 +196,22 @@ payments
   applied_at (timestamptz, null)
   raw_payload (jsonb)      -- last webhook event
   created_at
+
+customer_credits           -- redeemable-deposit ledger (wallet), keyed to customer
+  id (uuid, pk)
+  venue_id (fk)
+  customer_id (fk)
+  reservation_id (fk, null)
+  payment_id (fk, null)
+  type                     -- earned (deposit paid) | redeemed (applied to bill) |
+                           --   expired | adjusted
+  amount_cents             -- signed: + earned, − redeemed
+  redeemed_by (fk staff, null)
+  note
+  created_at
+  -- A customer's available balance = SUM(amount_cents) for the venue.
+  -- On no-show the "earned" entry stays; no negative offset is written, so the
+  -- credit remains redeemable on a future visit (per no_show_policy).
 
 waitlist
   id (uuid, pk)
@@ -307,19 +330,23 @@ audit_log
 
 1. **Compute deposit** server-side from `slot_rules` (never trust the client):
    `amount = party_size × deposit_per_person_cents`.
-2. **Create PaymentIntent** with `automatic` capture, `currency=mxn`, an
-   **idempotency key** = reservation id, and metadata (`venue_id`,
-   `reservation_id`). Slot is already `held`, so the table can't be lost while paying.
-3. **Confirm on client** (Stripe.js / Payment Element, mobile-optimized; cards +
-   OXXO + SPEI). For OXXO/SPEI the reservation stays `pending_payment` until the
-   async voucher clears, with a clearly communicated deadline.
+2. **Create PaymentIntent** with `automatic` capture, `currency=mxn`,
+   `payment_method_types=['card']` (**card only** — guarantees an instant lock; no
+   async OXXO/SPEI for the prime slot), an **idempotency key** = reservation id,
+   and metadata (`venue_id`, `reservation_id`). The slot is already `held`, so the
+   table can't be lost while paying.
+3. **Confirm on client** (Stripe.js / Payment Element, mobile-optimized, card).
 4. **Webhook** `/api/webhooks/stripe` (signature-verified):
-   `payment_intent.succeeded` → reservation `confirmed`, `payments.status=succeeded`.
-5. **On the night:** staff toggle `applied_to_bill=true` → the $200/person is
-   credited against the table's check (it's redeemable, by design).
-6. **No-show / cancellation:** governed by `venue_settings.no_show_policy` —
-   deposit retained or refunded (Stripe refund) per the configured rule; every
-   action written to `audit_log`.
+   `payment_intent.succeeded` → reservation `confirmed`, `payments.status=succeeded`,
+   **and write an `earned` row to `customer_credits`** so the amount appears as a
+   redeemable balance on the dashboard.
+5. **On the night:** staff redeem the credit against the table's check from the
+   dashboard → a `redeemed` (negative) row is written to `customer_credits` and
+   `payments.applied_to_bill=true`. The customer's balance returns to zero.
+6. **No-show:** per `no_show_policy = retain_as_credit`, the `earned` credit
+   **stays on the customer's account** — it is not forfeited and not auto-refunded.
+   The customer can redeem it on a future visit; staff can also issue a Stripe
+   refund manually if they choose. Every action is written to `audit_log`.
 
 **6.4 Provider abstraction.** All payment calls go through a `PaymentProvider`
 interface (`createDeposit`, `refund`, `handleWebhook`). Stripe is the first
@@ -421,18 +448,27 @@ Particulares*:
 
 ---
 
-## 11. Open items for product owner
+## 11. Open items — status
 
-These don't block starting Phase 0 but should be settled before Phase 1 ship:
+**Resolved with product owner:**
 
-1. **Hold TTL** — how many minutes to lock a slot during checkout (default: 10).
-2. **Cancellation window & no-show rule** — hours before, and whether the deposit
-   is forfeited or partially refunded on no-show.
-3. **Reminder cadence** — e.g. WhatsApp at 24h and 3h before (configurable).
-4. **WhatsApp sender** — Meta Business verification + approved templates needed;
-   who owns the BRUMA WhatsApp Business number.
-5. **Languages** — Spanish-first; do we need an English toggle for tourists in
-   Mazatlán? (recommended: yes, ES default).
-6. **Deposit on OXXO/SPEI** — these settle asynchronously; confirm we accept a
-   short "pending payment" window for the premium slot or restrict it to cards.
+1. ✅ **Hold TTL** — **10 minutes**.
+2. ✅ **No-show / deposit** — paid deposit becomes a **redeemable credit on the
+   customer's account**, shown on the dashboard. On no-show it is **retained as
+   credit, never forfeited** (`no_show_policy = retain_as_credit`); staff may still
+   issue a manual refund.
+3. ✅ **Reminder cadence** — **WhatsApp at 24h and 3h** before (configurable).
+4. ✅ **WhatsApp** — Meta Business verification + template approval to start now
+   (lead time). *Action: confirm who owns the BRUMA WhatsApp Business number.*
+5. ✅ **Languages** — **Spanish default + English toggle.**
+6. ✅ **Payment methods** — **card-only via Stripe** for the premium deposit (no
+   async OXXO/SPEI on the prime slot).
+
+**Still to confirm before Phase 1 ship:**
+
+- **WhatsApp number ownership** — which entity/number registers as the BRUMA
+  WhatsApp Business sender (blocks template approval).
+- **Cancellation window** — hours before the reservation after which a customer
+  can no longer self-cancel (default proposed: 24h). Note this is now decoupled
+  from the deposit outcome, since the deposit is always retained as credit.
 ```

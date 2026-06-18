@@ -1,0 +1,26 @@
+{
+  "locale": "en",
+  "common": {
+    "book": "Book",
+    "next": "Continue",
+    "back": "Back",
+    "guests": "Guests",
+    "date": "Date",
+    "select": "Select"
+  },
+  "booking": {
+    "title": "Book your table",
+    "chooseDate": "Choose a date",
+    "chooseParty": "How many guests?",
+    "availableRooms": "Available spaces",
+    "noAvailability": "No availability for that group size on that date",
+    "premiumNotice": "This is a premium slot (live DJ). Groups larger than 5 require a {amount} per-person deposit.",
+    "depositRedeemable": "The deposit is redeemable: it's credited to your tab that same night.",
+    "waitlistJoin": "Join the waitlist",
+    "waitlistFull": "The 10 pm slot is full"
+  },
+  "confirmation": {
+    "title": "Reservation confirmed!",
+    "reminder": "We'll send you a WhatsApp reminder."
+  }
+}

@@ -1,0 +1,56 @@
+/**
+ * Design tokens — the themeable skin layer.
+ *
+ * Every venue ships a token set. The :root defaults below are BRUMA's identity:
+ * dark, warm, analog/vinyl, premium. A new venue overrides these variables via
+ * a [data-venue="slug"] block (or injected inline from venue_branding.theme_tokens)
+ * without any component changes.
+ *
+ * Colors are stored as space-separated RGB channels so Tailwind's
+ * `rgb(var(--token) / <alpha-value>)` opacity syntax works.
+ */
+
+:root,
+[data-venue="bruma"] {
+  /* Surfaces — warm near-black, like a dim vinyl bar */
+  --color-bg: 18 15 13; /* #120F0D */
+  --color-surface: 28 23 20; /* #1C1714 */
+  --color-elevated: 38 31 27; /* #261F1B */
+  --color-border: 58 48 42; /* #3A302A */
+
+  /* Text */
+  --color-text: 242 234 224; /* #F2EAE0 warm off-white */
+  --color-muted: 168 154 140; /* #A89A8C */
+
+  /* Accent — amber/brass, analog glow */
+  --color-accent: 196 142 74; /* #C48E4A */
+  --color-accent-fg: 18 15 13; /* text on accent */
+
+  /* Status */
+  --color-success: 122 162 109; /* sage */
+  --color-warning: 214 168 84;
+  --color-danger: 198 92 78;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif; /* high-contrast editorial serif */
+
+  /* Shape & motion */
+  --radius: 0.75rem;
+  --transition-fast: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/*
+ * Example second skin (placeholder for future venue onboarding). Demonstrates
+ * that a full re-brand is a token swap. Not used until a real venue is added.
+ */
+[data-venue="_example_light"] {
+  --color-bg: 250 248 245;
+  --color-surface: 255 255 255;
+  --color-elevated: 245 242 238;
+  --color-border: 224 218 210;
+  --color-text: 28 24 20;
+  --color-muted: 110 102 94;
+  --color-accent: 24 24 27;
+  --color-accent-fg: 255 255 255;
+}

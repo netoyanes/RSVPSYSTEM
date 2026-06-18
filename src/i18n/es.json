@@ -1,0 +1,26 @@
+{
+  "locale": "es",
+  "common": {
+    "book": "Reservar",
+    "next": "Continuar",
+    "back": "Atrás",
+    "guests": "Personas",
+    "date": "Fecha",
+    "select": "Seleccionar"
+  },
+  "booking": {
+    "title": "Reserva tu mesa",
+    "chooseDate": "Elige la fecha",
+    "chooseParty": "¿Cuántas personas?",
+    "availableRooms": "Espacios disponibles",
+    "noAvailability": "No hay disponibilidad para ese grupo en esa fecha",
+    "premiumNotice": "Este horario es premium (DJ en vivo). Para grupos de más de 5 personas se requiere un depósito de {amount} por persona.",
+    "depositRedeemable": "El depósito es redimible: se aplica a tu cuenta esa misma noche.",
+    "waitlistJoin": "Apuntarme a la lista de espera",
+    "waitlistFull": "El horario de las 10 pm está lleno"
+  },
+  "confirmation": {
+    "title": "¡Reserva confirmada!",
+    "reminder": "Te enviaremos un recordatorio por WhatsApp."
+  }
+}

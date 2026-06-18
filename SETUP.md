@@ -62,7 +62,11 @@ npm run lint         # eslint, should print nothing
    - Project URL → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon` `public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` *(server-only, never ship to the browser)*
-3. Link the CLI and push the migrations (creates schema, RLS, and seeds BRUMA):
+3. **Apply the schema.** Easiest path (no CLI): open **SQL Editor → New query**,
+   paste the entire contents of [`supabase/setup.sql`](./supabase/setup.sql)
+   (schema + RLS + BRUMA seed + booking RPCs, all in one), and **Run**.
+
+   Or use the CLI to push the individual migrations:
    ```bash
    supabase login
    supabase link --project-ref <your-project-ref>

@@ -84,7 +84,35 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      get_availability: {
+        Args: { p_venue_slug: string; p_date: string; p_party: number };
+        Returns: {
+          room_id: string;
+          room_name: string;
+          slot_start: string;
+          deposit_cents: number;
+        }[];
+      };
+      create_hold: {
+        Args: {
+          p_venue_slug: string;
+          p_room_id: string;
+          p_slot_start: string;
+          p_party: number;
+          p_name: string;
+          p_phone: string;
+          p_email?: string | null;
+          p_occasion?: string | null;
+        };
+        Returns: {
+          reservation_id: string;
+          status: ReservationStatus;
+          deposit_cents: number;
+          hold_expires_at: string;
+        }[];
+      };
+    };
     Enums: Record<string, never>;
   };
 }
